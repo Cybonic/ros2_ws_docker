@@ -1,0 +1,167 @@
+FROM osrf/ros:humble-desktop-full
+
+# Build arguments for user creation
+ARG USERNAME=developer
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+# Set environment variables to avoid interactive prompts and warnings
+ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBCONF_NOWARNINGS=yes
+ENV ROS_DISTRO=humble
+ENV WORKSPACE=/ros2_ws
+ENV PIP_ROOT_USER_ACTION=ignore
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Update package list and install apt-utils first to suppress debconf warnings
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    apt-utils \
+    debconf-utils && \
+    rm -rf /var/lib/apt/lists/*
+
+# Configure debconf to use noninteractive frontend
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+
+# Install ROS2 and development dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    python3-pip \
+    python3-colcon-common-extensions \
+    python3-rosdep \
+    python3-vcstool \
+    ros-humble-sensor-msgs-py \
+    python3-numpy \
+    git \
+    wget \
+    curl \
+    nano \
+    vim \
+    neovim \
+    emacs \
+    gdb \
+    valgrind \
+    htop \
+    tmux \
+    tree \
+    bash-completion \
+    sudo \
+    && rm -rf /var/lib/apt/lists/* && \
+    apt-get clean
+
+# Try to install available RMW implementations (ignore failures)
+RUN apt-get update && \
+    (apt-get install -y --no-install-recommends ros-humble-rmw-cyclonedx-cpp || true) && \
+    (apt-get install -y --no-install-recommends ros-humble-rmw-fastrtps-cpp || true) && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get clean
+
+# Install additional Python packages via pip (environment variable suppresses warnings)
+RUN pip3 install --no-cache-dir \
+    matplotlib \
+    scipy \
+    ipython \
+    pytest \
+    black \
+    flake8
+
+# Create user with same UID/GID as host user (handle existing group)
+RUN if ! getent group $USER_GID > /dev/null 2>&1; then \
+      groupadd --gid $USER_GID $USERNAME; \
+    fi && \
+    if ! getent passwd $USER_UID > /dev/null 2>&1; then \
+      useradd --uid $USER_UID --gid $USER_GID -m -s /bin/bash $USERNAME; \
+    fi && \
+    echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME && \
+    chmod 0440 /etc/sudoers.d/$USERNAME
+
+# Create workspace and set permissions
+WORKDIR $WORKSPACE
+RUN mkdir -p $WORKSPACE && \
+    chown -R $USER_UID:$USER_GID $WORKSPACE
+
+# Initialize rosdep as root (required)
+RUN rosdep init || true && \
+    rosdep update
+
+# Switch to the created user
+USER $USER_UID:$USER_GID
+
+# Update rosdep for the user
+RUN rosdep update
+
+# Source the workspace in bashrc
+RUN echo "source /opt/ros/$ROS_DISTRO/setup.bash" >> ~/.bashrc && \
+    echo "if [ -f $WORKSPACE/install/setup.bash ]; then source $WORKSPACE/install/setup.bash; fi" >> ~/.bashrc
+
+# Set environment variables in bashrc
+RUN echo "export PIP_ROOT_USER_ACTION=ignore" >> ~/.bashrc && \
+    echo "export PIP_DISABLE_PIP_VERSION_CHECK=1" >> ~/.bashrc && \
+    echo "# Set RMW implementation - use default if cyclone not available" >> ~/.bashrc && \
+    echo "if [ -f /opt/ros/humble/lib/librmw_cyclonedx_cpp.so ]; then" >> ~/.bashrc && \
+    echo "  export RMW_IMPLEMENTATION=rmw_cyclonedx_cpp" >> ~/.bashrc && \
+    echo "elif [ -f /opt/ros/humble/lib/librmw_fastrtps_cpp.so ]; then" >> ~/.bashrc && \
+    echo "  export RMW_IMPLEMENTATION=rmw_fastrtps_cpp" >> ~/.bashrc && \
+    echo "else" >> ~/.bashrc && \
+    echo "  echo 'Using default RMW implementation'" >> ~/.bashrc && \
+    echo "fi" >> ~/.bashrc
+
+# Create generic ROS2 development aliases
+RUN echo "alias cb='colcon build'" >> ~/.bashrc && \
+    echo "alias cbs='colcon build --symlink-install'" >> ~/.bashrc && \
+    echo "alias cbt='colcon test'" >> ~/.bashrc && \
+    echo "alias cbr='colcon build && source install/setup.bash'" >> ~/.bashrc && \
+    echo "alias cbsr='colcon build --symlink-install && source install/setup.bash'" >> ~/.bashrc && \
+    echo "alias ll='ls -alF'" >> ~/.bashrc && \
+    echo "alias lt='tree'" >> ~/.bashrc && \
+    echo "alias la='ls -la'" >> ~/.bashrc && \
+    echo "alias src='source install/setup.bash'" >> ~/.bashrc && \
+    echo "alias clean='rm -rf build/ install/ log/'" >> ~/.bashrc && \
+    echo "alias roslog='tail -f log/latest_build/events.log'" >> ~/.bashrc && \
+    echo "alias rosdep_install='rosdep install --from-paths src --ignore-src -r -y'" >> ~/.bashrc && \
+    echo "alias ros2_topic_list='ros2 topic list'" >> ~/.bashrc && \
+    echo "alias ros2_node_list='ros2 node list'" >> ~/.bashrc && \
+    echo "alias set_rmw_cyclone='export RMW_IMPLEMENTATION=rmw_cyclonedx_cpp'" >> ~/.bashrc && \
+    echo "alias set_rmw_fastrtps='export RMW_IMPLEMENTATION=rmw_fastrtps_cpp'" >> ~/.bashrc && \
+    echo "alias unset_rmw='unset RMW_IMPLEMENTATION'" >> ~/.bashrc && \
+    echo "alias check_rmw='echo Current RMW: \${RMW_IMPLEMENTATION:-default}'" >> ~/.bashrc && \
+    echo "alias list_rmw='ros2 doctor --report | grep rmw'" >> ~/.bashrc
+
+# Create a generic startup message
+RUN echo 'echo "=== ROS2 Development Container ==="' >> ~/.bashrc && \
+    echo 'echo "User: $(whoami) ($(id -u):$(id -g)) | Workspace: $PWD"' >> ~/.bashrc && \
+    echo 'echo "RMW Implementation: ${RMW_IMPLEMENTATION:-default}"' >> ~/.bashrc && \
+    echo 'echo ""' >> ~/.bashrc && \
+    echo 'echo "Build aliases:"' >> ~/.bashrc && \
+    echo 'echo "  cb    - colcon build"' >> ~/.bashrc && \
+    echo 'echo "  cbs   - colcon build --symlink-install"' >> ~/.bashrc && \
+    echo 'echo "  cbr   - colcon build && source"' >> ~/.bashrc && \
+    echo 'echo "  cbsr  - colcon build --symlink-install && source"' >> ~/.bashrc && \
+    echo 'echo "  cbt   - colcon test"' >> ~/.bashrc && \
+    echo 'echo ""' >> ~/.bashrc && \
+    echo 'echo "Utility aliases:"' >> ~/.bashrc && \
+    echo 'echo "  src   - source install/setup.bash"' >> ~/.bashrc && \
+    echo 'echo "  clean - clean build files"' >> ~/.bashrc && \
+    echo 'echo "  rosdep_install - install dependencies"' >> ~/.bashrc && \
+    echo 'echo "  check_rmw - show current RMW implementation"' >> ~/.bashrc && \
+    echo 'echo "  list_rmw - list available RMW implementations"' >> ~/.bashrc && \
+    echo 'echo "  set_rmw_cyclone - use CycloneDX RMW"' >> ~/.bashrc && \
+    echo 'echo "  set_rmw_fastrtps - use FastRTPS RMW"' >> ~/.bashrc && \
+    echo 'echo "  unset_rmw - use default RMW"' >> ~/.bashrc && \
+    echo 'echo ""' >> ~/.bashrc && \
+    echo 'echo "Example workflow:"' >> ~/.bashrc && \
+    echo 'echo "  1. rosdep_install  # Install dependencies"' >> ~/.bashrc && \
+    echo 'echo "  2. cbs             # Build with symlinks"' >> ~/.bashrc && \
+    echo 'echo "  3. src             # Source workspace"' >> ~/.bashrc && \
+    echo 'echo "  4. ros2 launch ... # Run your packages"' >> ~/.bashrc && \
+    echo 'echo "==============================="' >> ~/.bashrc
+
+# Enable bash completion for ROS2
+RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> ~/.bashrc
+
+# Reset environment variables
+ENV DEBIAN_FRONTEND=
+ENV DEBCONF_NOWARNINGS=
+
+# Set the default command
+CMD ["/bin/bash"]

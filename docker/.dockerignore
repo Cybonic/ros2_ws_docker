@@ -1,0 +1,16 @@
+.git
+.gitignore
+README.md
+*.md
+.DS_Store
+Thumbs.db
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+install/
+log/
+*.egg-info/
+.pytest_cache/

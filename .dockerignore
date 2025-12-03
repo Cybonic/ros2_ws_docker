@@ -1,0 +1,53 @@
+# Version control
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+docs/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+*.pyc
+
+# ROS build artifacts (exclude from all locations)
+src/**/build/
+src/**/install/
+src/**/log/
+src/**/devel/
+build/
+install/
+log/
+devel/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Docker and scripts (exclude from build context)
+docker/
+scripts/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

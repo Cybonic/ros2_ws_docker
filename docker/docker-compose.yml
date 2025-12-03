@@ -1,0 +1,82 @@
+version: '3.3'
+
+services:
+  # Generic ROS2 development container
+  ros2-dev:
+    build: 
+      context: ../
+      dockerfile: docker/Dockerfile.dev
+      args:
+        - USERNAME=${USER}
+        - USER_UID=${UID:-1000}
+        - USER_GID=${GID:-1000}
+    container_name: ros2_dev
+    network_mode: host
+    environment:
+      - ROS_DOMAIN_ID=0
+      - DISPLAY=${DISPLAY}
+      - TERM=xterm-256color
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${HOME}/.Xauthority:${HOME}/.Xauthority:rw
+      - ../src:/ros2_ws/src:rw
+    stdin_open: true
+    tty: true
+    working_dir: /ros2_ws
+    user: "${UID:-1000}:${GID:-1000}"
+    command: /bin/bash
+
+  # Production container for specific package (when needed)
+  pointcloud-downsampler:
+    build: 
+      context: ../
+      dockerfile: docker/Dockerfile
+    container_name: pointcloud_downsampler
+    network_mode: host
+    environment:
+      - ROS_DOMAIN_ID=0
+      - DISPLAY=${DISPLAY}
+      - INPUT_TOPIC=${INPUT_TOPIC:-/velodyne_points}
+      - OUTPUT_TOPIC=${OUTPUT_TOPIC:-/downsampled_points}
+      - METHOD=${METHOD:-voxel}
+      - VOXEL_SIZE=${VOXEL_SIZE:-0.1}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${HOME}/.Xauthority:/root/.Xauthority:rw
+    stdin_open: true
+    tty: true
+    command: >
+      bash -c "source /opt/ros/humble/setup.bash &&
+               source /ros2_ws/install/setup.bash &&
+               ros2 launch pointcloud_downsampling downsampler.launch.py
+                 input_topic:=$${INPUT_TOPIC:-/velodyne_points}
+                 output_topic:=$${OUTPUT_TOPIC:-/downsampled_points}
+                 downsample_method:=$${METHOD:-voxel}
+                 voxel_size:=$${VOXEL_SIZE:-0.1}"
+
+  # RViz container
+  rviz:
+    build: 
+      context: ../
+      dockerfile: docker/Dockerfile.dev
+      args:
+        - USERNAME=${USER}
+        - USER_UID=${UID:-1000}
+        - USER_GID=${GID:-1000}
+    container_name: ros2_rviz
+    network_mode: host
+    environment:
+      - ROS_DOMAIN_ID=0
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${HOME}/.Xauthority:${HOME}/.Xauthority:rw
+      - ../src:/ros2_ws/src:rw
+    stdin_open: true
+    tty: true
+    working_dir: /ros2_ws
+    user: "${UID:-1000}:${GID:-1000}"
+    command: >
+      bash -c "source /opt/ros/humble/setup.bash &&
+               if [ -f install/setup.bash ]; then source install/setup.bash; fi &&
+               rviz2"
