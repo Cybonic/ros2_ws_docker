@@ -6,6 +6,10 @@ This project provides a Docker setup for a ROS 2 workspace, allowing for consist
 
 - Docker installed on your system.
 
+## TO-DO
+- [ ] Mount a Dataset folder in the ros2 workspace 
+- [ ] Solve all path (ie get full paths)
+
 ## Setup
 
 1. **Build the Docker Image:**
