@@ -213,10 +213,6 @@ while [[ $# -gt 0 ]]; do
             SERVICE="rviz"
             shift
             ;;
-        pointcloud-downsampler|prod|production)
-            SERVICE="pointcloud-downsampler"
-            shift
-            ;;
         -*)
             echo "Unknown option $1"
             show_help

@@ -10,16 +10,21 @@ This project provides a Docker setup for a ROS 2 workspace, allowing for consist
 - [ ] Mount a Dataset folder in the ros2 workspace 
 - [ ] Solve all path (ie get full paths)
 
+
 ## Setup
 
 1. **Build the Docker Image:**
    Navigate to the root of your ROS 2 workspace and build the Docker image:
 
    ```bash
-   docker build -t ros2_ws_image .
+   bash scripts/build_and_run_docker.sh  ## this code will build from Dockerfile
    ```
 
-   This command builds an image named `ros2_ws_image` based on the `Dockerfile` in your current directory.
+     ```bash
+   bash script/terminal.sh pharma 
+   ```
+
+
 
 2. **Run the Docker Container:**
    You can run an interactive container from the built image:
@@ -37,7 +42,7 @@ This project provides a Docker setup for a ROS 2 workspace, allowing for consist
    docker run -it --rm -v $(pwd):/ros2_ws ros2_ws_image
    ```
 
-   - `-v $(pwd):/ros2_ws`: Mounts your current host directory (your ROS 2 workspace) into the `/ros2_ws` directory inside the container. This allows you to edit files on your host and have them reflected in the container.
+   - `-v $(pwd)/src:/ros2_ws`: Mounts your current host directory (your ROS 2 workspace) into the `/ros2_ws` directory inside the container. This allows you to edit files on your host and have them reflected in the container.
 
 ## Usage within the Container
 

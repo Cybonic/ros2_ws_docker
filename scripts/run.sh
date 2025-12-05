@@ -41,10 +41,7 @@ DEV_MODE=false
 RVIZ=false
 PRODUCTION=false
 BUILD=false
-INPUT_TOPIC="/velodyne_points"
-OUTPUT_TOPIC="/downsampled_points"
-METHOD="voxel"
-VOXEL_SIZE="0.1"
+DATASET_PATH=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -69,22 +66,6 @@ while [[ $# -gt 0 ]]; do
             BUILD=true
             shift
             ;;
-        -i|--input)
-            INPUT_TOPIC="$2"
-            shift 2
-            ;;
-        -o|--output)
-            OUTPUT_TOPIC="$2"
-            shift 2
-            ;;
-        -m|--method)
-            METHOD="$2"
-            shift 2
-            ;;
-        -s|--voxel-size)
-            VOXEL_SIZE="$2"
-            shift 2
-            ;;
         *)
             echo "Unknown option $1"
             show_help
@@ -92,6 +73,9 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+
+
 
 # Default to dev mode if no mode specified
 if [ "$DEV_MODE" = false ] && [ "$RVIZ" = false ] && [ "$PRODUCTION" = false ]; then
@@ -107,11 +91,6 @@ fi
 # Allow X11 forwarding
 xhost +local:docker > /dev/null 2>&1
 
-# Export environment variables for docker-compose
-export INPUT_TOPIC
-export OUTPUT_TOPIC
-export METHOD
-export VOXEL_SIZE
 
 # Export user information for docker-compose
 export USER=$(whoami)
@@ -129,6 +108,8 @@ if command -v docker &> /dev/null && docker compose version &> /dev/null; then
 else
     DOCKER_COMPOSE_CMD="docker-compose"
 fi
+
+
 
 echo "Using: $DOCKER_COMPOSE_CMD"
 

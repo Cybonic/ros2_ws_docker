@@ -1,1 +1,16 @@
 src/*
+datasets/*
+logs/*
+temp/*
+*.log
+*.tmp
+*.bak
+*.old
+*.backup
+*.swp
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.iml
+node_modules/
