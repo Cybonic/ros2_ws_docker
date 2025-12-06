@@ -1,6 +1,20 @@
 # Base image with Ubuntu 22.04
 FROM ubuntu:22.04
 
+# Build arguments for user creation
+ARG USERNAME=developer
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+# Set environment variables to avoid interactive prompts and warnings
+ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBCONF_NOWARNINGS=yes
+ENV WORKSPACE=/ros_ws
+ENV ROS_DISTRO=humble
+ENV PIP_ROOT_USER_ACTION=ignore
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Build mode argument: development or production
 ARG BUILD_MODE=development
 ENV BUILD_MODE="${BUILD_MODE}"
 ENV DEBIAN_FRONTEND=noninteractive
@@ -75,34 +89,36 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Setup workspace
-RUN mkdir -p /ros_ws/src
-WORKDIR /ros_ws
 
-# Only for production: Copy workspace and build
-RUN if [ "${BUILD_MODE}" = "production" ]; then \
-      echo "Setting up production environment"; \
-      # This is a placeholder - actual COPY will happen after this in production builds \
-      echo "Workspace will be copied at build time"; \
-    else \
-      echo "Setting up development environment"; \
-      echo "Workspace will be mounted at runtime"; \
-    fi
+    # Create user with same UID/GID as host user (handle existing group)
+RUN if ! getent group $USER_GID > /dev/null 2>&1; then \
+      groupadd --gid $USER_GID $USERNAME; \
+    fi && \
+    if ! getent passwd $USER_UID > /dev/null 2>&1; then \
+      useradd --uid $USER_UID --gid $USER_GID -m -s /bin/bash $USERNAME; \
+    fi && \
+    echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME && \
+    chmod 0440 /etc/sudoers.d/$USERNAME
+
+# Create workspace and set permissions
+WORKDIR $WORKSPACE
+RUN mkdir -p $WORKSPACE && \
+    chown -R $USER_UID:$USER_GID $WORKSPACE
+
+# Switch to the created user
+USER $USER_UID:$USER_GID
 
 
 # COPY instructions that only apply to production builds
 # These will be skipped in development mode due to build context
-COPY ./src /ros_ws/src/
+COPY ./src /ros_ws/src
 
-# Build workspace only in production mode
-RUN if [ "${BUILD_MODE}" = "production" ]; then \
-      . /opt/ros/humble/setup.sh && \
-      colcon build --symlink-install; \
-    fi
+# Source the workspace in bashrc
+RUN echo "source /opt/ros/$ROS_DISTRO/setup.bash" >> ~/.bashrc && \
+    echo "if [ -f $WORKSPACE/install/setup.bash ]; then source $WORKSPACE/install/setup.bash; fi" >> ~/.bashrc
 
-# Setup ROS environment
-RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc \
-    && echo "if [ -f /ros_ws/install/setup.bash ]; then source /ros_ws/install/setup.bash; fi" >> /root/.bashrc
+RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> ~/.bashrc
+
 
 # Default command
 CMD ["/bin/bash"]

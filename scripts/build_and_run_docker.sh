@@ -5,27 +5,13 @@
 # --- Configuration ---
 IMAGE_NAME="pharmarobot"
 IMAGE_TAG="dev"
-CONTAINER_NAME="pharma"
+CONTAINER_NAME="pharma_${IMAGE_TAG}"
 
-# get Input Arguments
-
-# 1st argument: action to perform (build, run, or both)
-# 2nd argument: "localhost" or "jackal" to set ROS_MASTER_URI
-# Usage: ./build_and_run_docker.sh [action] [localhost|jackal]
-
-# --- Set ROS_MASTER_URI and ROS_IP based on the second argument ---
-# This section allows you to choose between running the container with ROS_MASTER_URI set to localhost
-# or to the Jackal's IP address, depending on your setup.
-# The second argument should be either "localhost" or "jackal".
-# If you want to run the container on the Jackal robot, you can set the second argument to "jackal".
-
-
-
-
-
-#ROS_MASTER_URI="http://169.254.119.61:11311" 
-#ROS_IP="169.254.165.124"
-
+# Export user information for docker-compose
+export USER=$(whoami)
+export UID=$(id -u)
+export GID=$(id -g)
+echo "Building/running with user: $USER ($UID:$GID)"
 
 
 ws_dir="ros_ws" # Directory inside the container where the host workspace will be mounted
@@ -53,7 +39,7 @@ fi
 
 
 # Dockerfile location (relative to this script's execution path)
-DOCKERFILE_PATH="Dockerfile"
+DOCKERFILE_PATH="docker/Dockerfile"
 
 # Build context (directory containing files for the build, including Dockerfile)
 BUILD_CONTEXT="."
@@ -138,7 +124,6 @@ if [ "$ACTION" = "run" ] || [ "$ACTION" = "both" ]; then
                 shift 2
                 echo "Host ROS bags directory: ${HOST_ROSBAGS_DIR} (will be mounted to /rosbags in the container)"
                 ;;
-                
             *)
                 echo "  Unrecognized argument: $1"
                 shift
@@ -157,17 +142,6 @@ if [ "$ACTION" = "run" ] || [ "$ACTION" = "both" ]; then
     fi
 
     echo "*** 2) Resolved HOST_ROSBAGS_DIR: ${FULL_HOST_ROSBAGS_DIR}"
-    # -it: Interactive TTY
-    # --rm: Automatically remove the container when it exits
-    # --gpus all: Make all GPUs available (ensure your Docker and NVIDIA drivers support this)
-    # -v: Mount host directory to container directory
-    # -p: Map host port to container port
-    # --name: Assign a name to the container
-    # The last line is the command to run inside the container
-
-    # Allow X11 forwarding for GUI applications (if needed)
-    # Replace this line:
-    # xhost + #local:root
 
     
     # On the remote machine
@@ -184,8 +158,6 @@ if [ "$ACTION" = "run" ] || [ "$ACTION" = "both" ]; then
     docker run --rm -it --tty \
         --privileged \
         --network=host \
-        --memory=4g \
-        --cpus=2.0 \
         --device=/dev/ttyUSB0 \
         --device=/dev/input/js0 \
         --volume=$XSOCK:$XSOCK:rw \
@@ -201,7 +173,6 @@ if [ "$ACTION" = "run" ] || [ "$ACTION" = "both" ]; then
         "${IMAGE_NAME}:${IMAGE_TAG}" \
         bash #-c "source /opt/ros/humble/setup.bash"
                  
-    
     echo "Container '${CONTAINER_NAME}' has exited."
 fi
 

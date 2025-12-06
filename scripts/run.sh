@@ -134,6 +134,7 @@ elif [ "$PRODUCTION" = true ]; then
     echo "Input topic: $INPUT_TOPIC"
     echo "Output topic: $OUTPUT_TOPIC"
     echo "Method: $METHOD"
-    echo "Voxel size: $VOXEL_SIZE"
+    echo "Voxel size: $VOXEecho "Building/running with user: $USER ($UID:$GID)"
+L_SIZE"
     $DOCKER_COMPOSE_CMD up pointcloud-downsampler
 fi
